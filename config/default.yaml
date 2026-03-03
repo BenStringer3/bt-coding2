@@ -1,0 +1,6 @@
+model: lm_studio/qwen/qwen3-14b
+temperature: 0.0
+max_tokens: 2048
+max_edit_attempts: 5
+window_size: 100
+window_overlap: 2

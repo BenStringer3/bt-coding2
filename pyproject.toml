@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bt-agent"
+version = "0.1.0"
+description = "Behavior-tree driven LLM code editing agent POC"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1.7",
+  "py-trees>=2.2.3",
+  "litellm>=1.55.0",
+  "gitpython>=3.1.43",
+  "pyflakes>=3.2.0",
+  "pydantic>=2.8.2",
+  "rich>=13.7.1",
+  "pyyaml>=6.0.2",
+  "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.2",
+]
+
+[project.scripts]
+bt-agent = "bt_agent.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["bt_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
