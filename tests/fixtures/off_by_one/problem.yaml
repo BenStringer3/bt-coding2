@@ -1,0 +1,5 @@
+name: "Off-by-one in get_pairs"
+description: "range(len(items)) causes IndexError when accessing items[i+1] on the last element"
+task: "Fix the IndexError in get_pairs: the function crashes when given a list with more than one item. The bug is in the range() call."
+compatible_trees:
+  - run

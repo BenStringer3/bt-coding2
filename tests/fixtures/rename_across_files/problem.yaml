@@ -1,0 +1,5 @@
+name: "Rename compute_total across files"
+description: "compute_total in utils.py is poorly named; rename to sum_items in both files"
+task: "Rename the function compute_total to sum_items in utils.py and update the import and usage in main.py to match."
+compatible_trees:
+  - run-multi
