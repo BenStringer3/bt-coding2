@@ -8,7 +8,7 @@ Analyze the most recent bt-agent run log and write a detailed markdown report.
 
 ## Collected run log
 
-!`cd /home/ben/bt_coding2 && ./scripts/collect-logs.sh $ARGUMENTS 2>&1`
+!`/home/ben/bt_coding2/scripts/run-info.sh log 2>&1`
 
 ## Run directory
 

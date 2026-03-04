@@ -9,6 +9,9 @@ VENV_BT_AGENT="$PROJECT_ROOT/.venv/bin/bt-agent"
 FIXTURES_DIR="$PROJECT_ROOT/tests/fixtures"
 RUNS_DIR="$PROJECT_ROOT/runs"
 
+# Capture wall-clock start time for LM Studio log filtering
+START_TS=$(date +"%Y-%m-%d %H:%M:%S")
+
 # ── Pre-flight checks ──────────────────────────────────────────────────────────
 if ! command -v fzf &>/dev/null; then
   echo "Error: fzf is not installed. Install it with your package manager." >&2
@@ -117,3 +120,10 @@ echo "Trajectory log: $TRAJECTORY"
 if [[ $EXIT_CODE -ne 0 ]]; then
   echo "Note: bt-agent exited with code $EXIT_CODE — log may contain partial run."
 fi
+
+# ── Collect and save formatted logs ───────────────────────────────────────────
+echo ""
+echo "Collecting logs..."
+"$SCRIPT_DIR/collect-logs.sh" \
+  --run-dir "$RUN_DIR" \
+  --start-time "$START_TS"

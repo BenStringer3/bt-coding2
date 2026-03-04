@@ -18,6 +18,16 @@ case "${1:-dir}" in
   dir)
     echo "$RUNDIR"
     ;;
+  log)
+    LOG_FILE="$RUNDIR/formatted-log.txt"
+    if [[ -f "$LOG_FILE" ]]; then
+      cat "$LOG_FILE"
+    else
+      echo "Error: no formatted-log.txt found in $RUNDIR" >&2
+      echo "Run collect-logs.sh --run-dir '$RUNDIR' to generate it." >&2
+      exit 1
+    fi
+    ;;
   problem)
     SLUG=$(basename "$RUNDIR" | sed 's/-[0-9]\{8\}-[0-9]\{6\}$//')
     PROBLEM="$FIXTURES_DIR/$SLUG/problem.yaml"
@@ -32,7 +42,7 @@ case "${1:-dir}" in
     git log --oneline -3 && echo "---" && git diff HEAD~1 HEAD 2>/dev/null || echo "(no previous commit — initial state only)"
     ;;
   *)
-    echo "Usage: $0 [dir|problem|diff]" >&2
+    echo "Usage: $0 [dir|log|problem|diff]" >&2
     exit 1
     ;;
 esac

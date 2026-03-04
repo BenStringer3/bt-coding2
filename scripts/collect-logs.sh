@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # collect-logs.sh — read the most recent trajectory.jsonl in human-readable form,
 #                   optionally interleaved with LM Studio server logs.
+#                   When --run-dir is given, saves output to $RUN_DIR/formatted-log.txt.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,12 +11,18 @@ VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 RUNS_DIR="$PROJECT_ROOT/runs"
 LM_STUDIO_LOG=""
 LM_STUDIO_LOGS_DIR="$HOME/.lmstudio/server-logs"
+RUN_DIR=""
+START_TIME=""
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --runs-dir)
       RUNS_DIR="$2"
+      shift 2
+      ;;
+    --run-dir)
+      RUN_DIR="$2"
       shift 2
       ;;
     --lm-studio-log)
@@ -26,16 +33,22 @@ while [[ $# -gt 0 ]]; do
       LM_STUDIO_LOGS_DIR=""
       shift
       ;;
+    --start-time)
+      START_TIME="$2"
+      shift 2
+      ;;
     *)
-      echo "Usage: $0 [--runs-dir <path>] [--lm-studio-log <path>] [--no-lm-studio]" >&2
+      echo "Usage: $0 [--runs-dir <path>] [--run-dir <path>] [--lm-studio-log <path>] [--no-lm-studio] [--start-time 'YYYY-MM-DD HH:MM:SS']" >&2
       exit 1
       ;;
   esac
 done
 
-# ── Find most recent trajectory.jsonl ─────────────────────────────────────────
+# ── Find trajectory ────────────────────────────────────────────────────────────
 TRAJECTORY=""
-if [[ -d "$RUNS_DIR" ]]; then
+if [[ -n "$RUN_DIR" ]]; then
+  TRAJECTORY="$RUN_DIR/trajectory.jsonl"
+elif [[ -d "$RUNS_DIR" ]]; then
   TRAJECTORY=$(find "$RUNS_DIR" -name "trajectory.jsonl" | sort -r | head -1)
 fi
 
@@ -44,9 +57,9 @@ if [[ -z "$TRAJECTORY" && -f "trajectory.jsonl" ]]; then
   TRAJECTORY="$(pwd)/trajectory.jsonl"
 fi
 
-if [[ -z "$TRAJECTORY" ]]; then
+if [[ -z "$TRAJECTORY" || ! -f "$TRAJECTORY" ]]; then
   echo "Error: no trajectory.jsonl found under $RUNS_DIR" >&2
-  echo "Run a problem first with scripts/run-problem.sh, or pass --runs-dir <path>" >&2
+  echo "Run a problem first with scripts/run-problem.sh, or pass --run-dir <path>" >&2
   exit 1
 fi
 
@@ -55,20 +68,30 @@ if [[ -z "$LM_STUDIO_LOG" && -n "$LM_STUDIO_LOGS_DIR" && -d "$LM_STUDIO_LOGS_DIR
   LM_STUDIO_LOG=$(find "$LM_STUDIO_LOGS_DIR" -name "*.log" | sort -r | head -1)
 fi
 
-echo "Reading: $TRAJECTORY"
-if [[ -n "$LM_STUDIO_LOG" ]]; then
-  echo "LM Studio: $LM_STUDIO_LOG"
+# ── Set up output: tee to file when --run-dir is given ───────────────────────
+declare -a TEEARGS=()
+OUTPUT_FILE=""
+if [[ -n "$RUN_DIR" ]]; then
+  OUTPUT_FILE="$RUN_DIR/formatted-log.txt"
+  TEEARGS=("$OUTPUT_FILE")
 fi
-echo ""
 
-# ── Process with inline Python ────────────────────────────────────────────────
-"$VENV_PYTHON" - "$TRAJECTORY" "${LM_STUDIO_LOG:-}" <<'EOF'
+# ── Collect and (optionally) save ─────────────────────────────────────────────
+{
+  echo "Reading: $TRAJECTORY"
+  if [[ -n "$LM_STUDIO_LOG" ]]; then
+    echo "LM Studio: $LM_STUDIO_LOG"
+  fi
+  echo ""
+
+  "$VENV_PYTHON" - "$TRAJECTORY" "${LM_STUDIO_LOG:-}" "${START_TIME:-}" <<'EOF'
 import sys
 import json
 import re
 
 traj_path = sys.argv[1]
 lm_log_path = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
+explicit_start_time = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
 
 # ── Parse trajectory ──────────────────────────────────────────────────────────
 traj_entries = []
@@ -99,7 +122,12 @@ def norm_ts(ts):
     """Normalise ISO or bracket timestamp to sortable YYYY-MM-DD HH:MM:SS."""
     return ts.replace("T", " ").split(".")[0]
 
-run_start_ts = norm_ts(run_entries[0].get("timestamp", ""))
+# Use explicit start time if provided (wall-clock from run-problem.sh),
+# otherwise fall back to the first trajectory entry's timestamp.
+if explicit_start_time:
+    run_start_ts = explicit_start_time
+else:
+    run_start_ts = norm_ts(run_entries[0].get("timestamp", ""))
 
 # Build event list from trajectory: (ts, source_order, data)
 # source_order controls tie-breaking within the same second:
@@ -136,7 +164,7 @@ if lm_log_path:
     if cur:
         lm_entries.append(cur)
 
-    # Extract interesting events; filter to current run's time window
+    # Extract interesting events; filter strictly to current run's time window
     pending_timing = {}
     for e in lm_entries:
         if e["ts"] < run_start_ts:
@@ -258,3 +286,9 @@ for ts, _order, data in events:
             print(f"  ERROR: {error}")
 
 EOF
+} | tee "${TEEARGS[@]}"
+
+if [[ -n "$OUTPUT_FILE" ]]; then
+  echo ""
+  echo "Log saved: $OUTPUT_FILE"
+fi
