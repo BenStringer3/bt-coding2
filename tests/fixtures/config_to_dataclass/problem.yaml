@@ -1,0 +1,16 @@
+name: "Migrate CONFIG dict to a dataclass"
+description: >
+  config.py exposes a plain dict CONFIG that server.py and client.py access
+  with string keys. Replace CONFIG with a frozen dataclass AppConfig and update
+  all call sites to use attribute access instead of dict subscripts.
+task: >
+  Refactor config.py so that CONFIG is replaced by a frozen dataclass called
+  AppConfig (fields: host, port, timeout, max_retries) and a module-level
+  instance named CONFIG = AppConfig().
+  Update server.py to use CONFIG.host and CONFIG.port instead of CONFIG["host"]
+  and CONFIG["port"].
+  Update client.py to use CONFIG.timeout and CONFIG.max_retries instead of
+  CONFIG["timeout"] and CONFIG["max_retries"].
+  Do not change any logic, only the config representation and access style.
+compatible_trees:
+  - run-multi
