@@ -7,7 +7,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNS_DIR="$SCRIPT_DIR/../runs"
 FIXTURES_DIR="$SCRIPT_DIR/../tests/fixtures"
 
-RUNDIR=$(find "$RUNS_DIR" -name "trajectory.jsonl" | sort -r | head -1 | xargs -r dirname)
+RUNDIR=$(find "$RUNS_DIR" -name "trajectory.jsonl" \
+  | sed 's|.*/[^/]*-\([0-9]\{8\}-[0-9]\{6\}\)/.*|\1 &|' \
+  | sort -r \
+  | head -1 \
+  | awk '{print $2}' \
+  | xargs -r dirname)
 
 if [[ -z "$RUNDIR" ]]; then
   echo "(no run directory found)" >&2
@@ -20,13 +25,10 @@ case "${1:-dir}" in
     ;;
   log)
     LOG_FILE="$RUNDIR/formatted-log.txt"
-    if [[ -f "$LOG_FILE" ]]; then
-      cat "$LOG_FILE"
-    else
-      echo "Error: no formatted-log.txt found in $RUNDIR" >&2
-      echo "Run collect-logs.sh --run-dir '$RUNDIR' to generate it." >&2
-      exit 1
+    if [[ ! -f "$LOG_FILE" ]]; then
+      "$SCRIPT_DIR/collect-logs.sh" --run-dir "$RUNDIR" > /dev/null
     fi
+    cat "$LOG_FILE"
     ;;
   problem)
     SLUG=$(basename "$RUNDIR" | sed 's/-[0-9]\{8\}-[0-9]\{6\}$//')
