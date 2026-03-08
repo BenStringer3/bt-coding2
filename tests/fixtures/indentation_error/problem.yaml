@@ -1,0 +1,5 @@
+name: "IndentationError in categorise function"
+description: "The assignment 'grade = \"C\"' inside the 'elif score >= 70' branch is over-indented with 12 spaces instead of 8, causing an IndentationError that prevents the module from loading."
+task: "Fix the indentation error in buggy.py: inside categorise(), the line 'grade = \"C\"' is indented too far (12 spaces). It should be indented 8 spaces to match the other branches."
+compatible_trees:
+  - run

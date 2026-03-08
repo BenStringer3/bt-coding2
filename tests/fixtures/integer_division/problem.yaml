@@ -1,0 +1,5 @@
+name: "Floor division instead of true division"
+description: "split_bill and percentage both use // (floor division) which truncates fractional results. They should use / (true division) to preserve decimal precision."
+task: "Fix split_bill and percentage in buggy.py: both functions use // (floor division) which discards the decimal portion of the result. Change // to / in both functions so that fractional values are preserved."
+compatible_trees:
+  - run

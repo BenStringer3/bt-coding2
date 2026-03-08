@@ -1,0 +1,5 @@
+name: "ImportError from misspelled name in collections import"
+description: "The import 'from collections import OrderedDict, defaultdict, ChainMapp' fails at runtime because 'ChainMapp' is a misspelling of 'ChainMap'"
+task: "Fix the import error in buggy.py: 'ChainMapp' is not a valid name in the collections module. Either correct the spelling to 'ChainMap' or remove it from the import if it is not used."
+compatible_trees:
+  - run

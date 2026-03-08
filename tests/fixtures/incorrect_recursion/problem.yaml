@@ -1,0 +1,5 @@
+name: "Incorrect base case in recursive factorial"
+description: "factorial() checks n == 1 as its base case, causing infinite recursion (then RecursionError) when called with n=0, since 0 never equals 1"
+task: "Fix the base case in factorial in buggy.py: the current base case is 'n == 1' which causes a RecursionError when n=0. Change it to 'n == 0' (or 'n <= 0') so that factorial(0) correctly returns 1."
+compatible_trees:
+  - run

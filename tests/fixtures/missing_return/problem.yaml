@@ -1,0 +1,5 @@
+name: "Missing return in compute_discount"
+description: "compute_discount computes the discounted price but never returns it, so it always returns None"
+task: "Fix compute_discount in buggy.py: the function calculates a discounted price but never returns the result, so every call returns None instead of the expected float."
+compatible_trees:
+  - run

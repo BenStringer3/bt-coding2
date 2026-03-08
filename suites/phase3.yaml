@@ -1,0 +1,21 @@
+name: "Phase 3 — Multi-File Refactoring"
+description: >
+  Validate the multi-file tree's dependency ordering, conflict resolution, and rollback
+  across problems that touch 2-4 files simultaneously.
+  Success gate: >=70% of problems produce a consistent, passing codebase.
+phase: 3
+success_gate:
+  min_success_rate: 0.70
+  max_avg_retries: 4.0
+  prerequisite_phase: 2
+
+problems:
+  - id: rename_across_files
+    fixture: tests/fixtures/rename_across_files
+    trees: [run-multi]
+    description: "Rename compute_total -> sum_items across 2 files"
+
+  - id: config_to_dataclass
+    fixture: tests/fixtures/config_to_dataclass
+    trees: [run-multi]
+    description: "Replace CONFIG dict with frozen dataclass across 3 files"

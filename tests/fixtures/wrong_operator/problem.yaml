@@ -1,0 +1,5 @@
+name: "Wrong comparison operator in is_valid_age"
+description: "is_valid_age uses > 0 instead of >= 0, incorrectly rejecting age=0 as invalid"
+task: "Fix is_valid_age in buggy.py: an age of 0 should be considered valid (newborns exist), but the current check uses '> 0' instead of '>= 0', causing age 0 to be rejected."
+compatible_trees:
+  - run

@@ -1,0 +1,5 @@
+name: "Wrong sort direction in top_scores"
+description: "top_scores is documented to return the highest scores first, but sorted() defaults to ascending order, so it returns the lowest scores instead"
+task: "Fix top_scores in buggy.py: the function should return the top-n highest scores in descending order, but it currently sorts ascending. Add reverse=True to the sorted() call so it returns the largest scores first."
+compatible_trees:
+  - run
