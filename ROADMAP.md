@@ -197,7 +197,11 @@ scripts/
   bench.sh            # Run a suite → runs/<id>/{manifest,results}.json
   bench-analyze.py    # Parse trajectories → runs/<id>/metrics.json
   bench-report.py     # Generate Markdown → reports/<ts>-summary.md
-  bench-tune.sh       # Iterative loop: bench → analyze → report → adjust → rerun
+  bench-tune.sh       # Iterative loop: bench → analyze → report → claude → rerun
+                      #   Step 4 uses the `claude` CLI (frontier model) to diagnose
+                      #   failures and propose/apply improvements to the bt-agent
+                      #   codebase (leaf nodes, tree structure, prompts, config).
+                      #   bt-agent is the subject under test — NOT the optimizer.
   run-problem.sh      # Interactive single-problem runner (unchanged)
   collect-logs.sh     # Human-readable log formatter (unchanged)
 ```
@@ -212,7 +216,10 @@ scripts/
 cat reports/latest.md
 
 # 3. Run the iterative tuning loop (up to 3 iterations)
+#    Each iteration: bench → analyze → report → claude analyzes → (apply) → rerun
+#    Use --auto-tune to let claude apply changes autonomously (no human confirmation)
 ./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 3
+./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 3 --auto-tune
 
 # 4. Check cumulative progress
 cat reports/progress.md
