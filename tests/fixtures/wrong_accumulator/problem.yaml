@@ -1,0 +1,5 @@
+name: "Wrong accumulator in total_price"
+description: "total_price accumulates item['qty'] instead of item['price'] * item['qty'], returning the total quantity rather than the total monetary value"
+task: "Fix total_price in buggy.py: the loop accumulates item['qty'] but it should accumulate item['price'] * item['qty'] to compute the correct monetary total."
+compatible_trees:
+  - run

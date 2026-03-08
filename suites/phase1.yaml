@@ -1,0 +1,40 @@
+name: "Phase 1 — Single-File Syntactic & Obvious Bugs"
+description: >
+  Validate that the harness reliably solves clear, local, well-defined single-file fixes.
+  Success gate: >=90% pass rate, <=2 retries per problem on average.
+phase: 1
+success_gate:
+  min_success_rate: 0.90
+  max_avg_retries: 2.0
+  max_avg_llm_calls: 4
+
+problems:
+  - id: off_by_one
+    fixture: tests/fixtures/off_by_one
+    trees: [run]
+    description: "range(len(items)) off-by-one causes IndexError"
+
+  - id: missing_return
+    fixture: tests/fixtures/missing_return
+    trees: [run]
+    description: "compute_discount missing return statement"
+
+  - id: wrong_operator
+    fixture: tests/fixtures/wrong_operator
+    trees: [run]
+    description: "is_valid_age uses > instead of >= for zero check"
+
+  - id: typo_in_variable
+    fixture: tests/fixtures/typo_in_variable
+    trees: [run]
+    description: "Variable name 'recieved_at' misspelled"
+
+  - id: unused_import_error
+    fixture: tests/fixtures/unused_import_error
+    trees: [run]
+    description: "ChainMapp misspelling causes ImportError"
+
+  - id: indentation_error
+    fixture: tests/fixtures/indentation_error
+    trees: [run]
+    description: "Over-indented line causes IndentationError"

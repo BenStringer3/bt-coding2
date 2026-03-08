@@ -1,0 +1,5 @@
+name: "Mutable default argument in append_item"
+description: "append_item uses a list as a default argument. Python creates this list once at function definition time, so it persists across calls and accumulates all items ever appended."
+task: "Fix append_item in buggy.py: the function uses a mutable list as a default argument, causing state to leak between calls. Use None as the default and create a new list inside the function when no collection is provided."
+compatible_trees:
+  - run

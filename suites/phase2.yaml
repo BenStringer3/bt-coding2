@@ -1,0 +1,41 @@
+name: "Phase 2 — Single-File Logic & Algorithm Bugs"
+description: >
+  Validate that the harness can reason about program semantics, not just syntax.
+  Success gate: >=80% pass rate within retry budget.
+phase: 2
+success_gate:
+  min_success_rate: 0.80
+  max_avg_retries: 3.0
+  max_avg_llm_calls: 6
+  prerequisite_phase: 1
+
+problems:
+  - id: sort_direction
+    fixture: tests/fixtures/sort_direction
+    trees: [run]
+    description: "top_scores sorts ascending instead of descending"
+
+  - id: missing_edge_case
+    fixture: tests/fixtures/missing_edge_case
+    trees: [run]
+    description: "average() raises ZeroDivisionError on empty list"
+
+  - id: wrong_accumulator
+    fixture: tests/fixtures/wrong_accumulator
+    trees: [run]
+    description: "total_price accumulates qty instead of price*qty"
+
+  - id: incorrect_recursion
+    fixture: tests/fixtures/incorrect_recursion
+    trees: [run]
+    description: "factorial base case n==1 fails for n==0"
+
+  - id: state_mutation_bug
+    fixture: tests/fixtures/state_mutation_bug
+    trees: [run]
+    description: "Mutable default argument persists state across calls"
+
+  - id: integer_division
+    fixture: tests/fixtures/integer_division
+    trees: [run]
+    description: "Floor division (//) truncates fractional results"

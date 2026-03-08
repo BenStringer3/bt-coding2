@@ -1,0 +1,81 @@
+name: "Full Regression Suite — All Phases"
+description: >
+  Run all problems across all phases. Used for full regression checks
+  after significant harness changes.
+phase: null
+success_gate:
+  min_success_rate: 0.75
+
+problems:
+  # Phase 1
+  - id: off_by_one
+    fixture: tests/fixtures/off_by_one
+    trees: [run]
+    phase: 1
+
+  - id: missing_return
+    fixture: tests/fixtures/missing_return
+    trees: [run]
+    phase: 1
+
+  - id: wrong_operator
+    fixture: tests/fixtures/wrong_operator
+    trees: [run]
+    phase: 1
+
+  - id: typo_in_variable
+    fixture: tests/fixtures/typo_in_variable
+    trees: [run]
+    phase: 1
+
+  - id: unused_import_error
+    fixture: tests/fixtures/unused_import_error
+    trees: [run]
+    phase: 1
+
+  - id: indentation_error
+    fixture: tests/fixtures/indentation_error
+    trees: [run]
+    phase: 1
+
+  # Phase 2
+  - id: sort_direction
+    fixture: tests/fixtures/sort_direction
+    trees: [run]
+    phase: 2
+
+  - id: missing_edge_case
+    fixture: tests/fixtures/missing_edge_case
+    trees: [run]
+    phase: 2
+
+  - id: wrong_accumulator
+    fixture: tests/fixtures/wrong_accumulator
+    trees: [run]
+    phase: 2
+
+  - id: incorrect_recursion
+    fixture: tests/fixtures/incorrect_recursion
+    trees: [run]
+    phase: 2
+
+  - id: state_mutation_bug
+    fixture: tests/fixtures/state_mutation_bug
+    trees: [run]
+    phase: 2
+
+  - id: integer_division
+    fixture: tests/fixtures/integer_division
+    trees: [run]
+    phase: 2
+
+  # Phase 3
+  - id: rename_across_files
+    fixture: tests/fixtures/rename_across_files
+    trees: [run-multi]
+    phase: 3
+
+  - id: config_to_dataclass
+    fixture: tests/fixtures/config_to_dataclass
+    trees: [run-multi]
+    phase: 3

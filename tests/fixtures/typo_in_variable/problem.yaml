@@ -1,0 +1,5 @@
+name: "Typo in variable name: recieved_at"
+description: "The variable 'recieved_at' is a misspelling of 'received_at'; Python raises no error since it's self-consistent, but it's a latent correctness issue and the returned key name relies on the assignment being right."
+task: "Fix the typo in buggy.py: the variable 'recieved_at' is misspelled. It should be 'received_at' (e-i, not i-e). Rename the variable in both the assignment and any references."
+compatible_trees:
+  - run

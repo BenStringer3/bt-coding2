@@ -1,0 +1,5 @@
+name: "Missing empty-list guard in average"
+description: "average() raises ZeroDivisionError when given an empty list. According to the docstring it should return 0.0 instead."
+task: "Fix average in buggy.py: the function crashes with ZeroDivisionError when called with an empty list. Add a guard so that it returns 0.0 when the input list is empty, as documented."
+compatible_trees:
+  - run
