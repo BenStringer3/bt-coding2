@@ -4,6 +4,7 @@ import py_trees
 
 from bt_agent.llm.client import LLMCallResult
 from bt_agent.tree.blackboard import AgentBlackboard, StrReplaceEdit
+from bt_agent.tree.nodes.base import BaseLLMNode
 from bt_agent.tree.nodes.commit import GitCommit
 from bt_agent.tree.nodes.edit import ApplyEdit, ReadTargetFile
 from bt_agent.tree.nodes.gather import BuildRepoMap
@@ -69,3 +70,48 @@ def test_git_commit_dry_run(tmp_path: Path) -> None:
     bb = AgentBlackboard(task_description="t", repo_path=tmp_path)
     node = GitCommit(bb, dry_run=True)
     assert node.update() == py_trees.common.Status.SUCCESS
+
+
+class _ProbeNode(BaseLLMNode):
+    def update(self) -> py_trees.common.Status:
+        return py_trees.common.Status.SUCCESS
+
+
+class _FlakyLLM:
+    def __init__(self, fail_times: int, response_text: str):
+        self.fail_times = fail_times
+        self.response_text = response_text
+        self.calls = 0
+
+    def call(self, _system: str, _user: str) -> LLMCallResult:
+        self.calls += 1
+        if self.calls <= self.fail_times:
+            raise RuntimeError("temporary connection error")
+        return LLMCallResult(
+            text=self.response_text,
+            raw_response=self.response_text,
+            prompt_tokens=1,
+            completion_tokens=1,
+        )
+
+    @staticmethod
+    def clean_json_text(text: str) -> str:
+        return text
+
+
+def test_base_llm_json_retries_on_call_failure(tmp_path: Path) -> None:
+    bb = AgentBlackboard(task_description="t", repo_path=tmp_path)
+    llm = _FlakyLLM(fail_times=1, response_text='{"k":"v"}')
+    node = _ProbeNode("probe", bb, llm)
+    payload = node._call_llm_json("sys", "user", retries=2, retry_delay_s=0.0)
+    assert payload == {"k": "v"}
+    assert llm.calls == 2
+
+
+def test_base_llm_text_retries_on_call_failure(tmp_path: Path) -> None:
+    bb = AgentBlackboard(task_description="t", repo_path=tmp_path)
+    llm = _FlakyLLM(fail_times=1, response_text="hello")
+    node = _ProbeNode("probe", bb, llm)
+    text = node._call_llm_text("sys", "user", retries=2, retry_delay_s=0.0)
+    assert text == "hello"
+    assert llm.calls == 2

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from abc import ABC
+from time import sleep
 
 import py_trees
 
@@ -24,11 +25,18 @@ class BaseLLMNode(py_trees.behaviour.Behaviour, ABC):
         cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
         return thought, cleaned
 
-    def _call_llm_json(self, system: str, user: str, retries: int = 2) -> dict:
+    def _call_llm_json(self, system: str, user: str, retries: int = 2, retry_delay_s: float = 0.2) -> dict:
         current_user = user
         last_error = ""
-        for _ in range(retries + 1):
-            result = self.llm.call(system, current_user)
+        for attempt in range(retries + 1):
+            try:
+                result = self.llm.call(system, current_user)
+            except Exception as exc:
+                last_error = str(exc)
+                if attempt < retries:
+                    sleep(retry_delay_s)
+                    continue
+                raise RuntimeError(f"LLM call failed after retries: {last_error}") from exc
             thought, cleaned = self._extract_thought(result.text)
             cleaned = self.llm.clean_json_text(cleaned)
             self.last_llm_call = {
@@ -45,16 +53,30 @@ class BaseLLMNode(py_trees.behaviour.Behaviour, ABC):
                     f"{user}\n\nYour prior output was invalid JSON: {exc}. "
                     "Return valid JSON only and preserve the required keys."
                 )
+                if attempt < retries:
+                    sleep(retry_delay_s)
 
         raise ValueError(f"Invalid JSON: {last_error}")
 
-    def _call_llm_text(self, system: str, user: str) -> str:
-        result = self.llm.call(system, user)
-        thought, cleaned = self._extract_thought(result.text)
-        self.last_llm_call = {
-            "prompt_tokens": result.prompt_tokens,
-            "completion_tokens": result.completion_tokens,
-            "raw_response": result.raw_response,
-            "thought": thought,
-        }
-        return cleaned.strip()
+    def _call_llm_text(self, system: str, user: str, retries: int = 2, retry_delay_s: float = 0.2) -> str:
+        last_error = ""
+        for attempt in range(retries + 1):
+            try:
+                result = self.llm.call(system, user)
+            except Exception as exc:
+                last_error = str(exc)
+                if attempt < retries:
+                    sleep(retry_delay_s)
+                    continue
+                raise RuntimeError(f"LLM call failed after retries: {last_error}") from exc
+
+            thought, cleaned = self._extract_thought(result.text)
+            self.last_llm_call = {
+                "prompt_tokens": result.prompt_tokens,
+                "completion_tokens": result.completion_tokens,
+                "raw_response": result.raw_response,
+                "thought": thought,
+            }
+            return cleaned.strip()
+
+        raise RuntimeError(f"LLM call failed after retries: {last_error}")

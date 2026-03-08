@@ -186,6 +186,9 @@ PYEOF
 )
 
     # Write per-trial result.json
+    COMMITTED_PY_BOOL=$( [[ "$COMMITTED" == "true" ]] && echo "True" || echo "False" )
+    SUCCESS_PY_BOOL=$( [[ $EXIT_CODE -eq 0 ]] && echo "True" || echo "False" )
+
     "$VENV_PYTHON" - "$TRIAL_DIR/result.json" <<PYEOF
 import json
 result = {
@@ -194,9 +197,9 @@ result = {
     "trial": $TRIAL,
     "exit_code": $EXIT_CODE,
     "wall_time_s": $WALL_S,
-    "committed": $( [[ "$COMMITTED" == "true" ]] && echo "true" || echo "false" ),
+    "committed": $COMMITTED_PY_BOOL,
     "diff_lines": $DIFF_LINES,
-    "success": $( [[ $EXIT_CODE -eq 0 ]] && echo "true" || echo "false" ),
+    "success": $SUCCESS_PY_BOOL,
 }
 with open("$TRIAL_DIR/result.json", "w") as f:
     json.dump(result, f, indent=2)
