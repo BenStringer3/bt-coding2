@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import py_trees
 
-from bt_agent.llm.prompts import COMMIT_MSG_SYSTEM, COMMIT_MSG_USER
 from bt_agent.tools.git_ops import stage_and_commit
 from bt_agent.tree.nodes.base import BaseLLMNode
 
@@ -16,20 +15,13 @@ class GenerateCommitMsg(BaseLLMNode):
             self.bb.last_error = "GenerateCommitMsg missing edit_intent or selected_file"
             return py_trees.common.Status.FAILURE
 
-        try:
-            text = self._call_llm_text(
-                COMMIT_MSG_SYSTEM,
-                COMMIT_MSG_USER.format(edit_intent=self.bb.edit_intent, selected_file=self.bb.selected_file),
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.bb.last_error = f"GenerateCommitMsg failed: {exc}"
+        # Deterministic commit messages avoid an unnecessary LLM call in the hot path.
+        intent = " ".join(self.bb.edit_intent.strip().split())
+        if not intent:
+            self.bb.last_error = "GenerateCommitMsg missing non-empty edit_intent"
             return py_trees.common.Status.FAILURE
-
-        if not text or len(text) > 200:
-            self.bb.last_error = "GenerateCommitMsg returned empty or too long message"
-            return py_trees.common.Status.FAILURE
-
-        self.bb.commit_message = text
+        message = f"fix: update {self.bb.selected_file} - {intent}"
+        self.bb.commit_message = message[:72]
         self.bb.last_error = None
         return py_trees.common.Status.SUCCESS
 
