@@ -48,6 +48,13 @@ class BaseLLMNode(py_trees.behaviour.Behaviour, ABC):
             try:
                 return json.loads(cleaned)
             except json.JSONDecodeError as exc:
+                # Recover common small-model failure: valid JSON object followed by extra text/JSON.
+                try:
+                    first_obj, _ = json.JSONDecoder().raw_decode(cleaned)
+                    if isinstance(first_obj, dict):
+                        return first_obj
+                except json.JSONDecodeError:
+                    pass
                 last_error = str(exc)
                 current_user = (
                     f"{user}\n\nYour prior output was invalid JSON: {exc}. "
