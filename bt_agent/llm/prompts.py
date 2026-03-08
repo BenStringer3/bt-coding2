@@ -39,11 +39,13 @@ PLAN_EDITS_USER = (
 
 GENERATE_EDIT_SYSTEM = "You are a code editor. Generate a str_replace edit."
 GENERATE_EDIT_USER = (
-    f"{THOUGHT_INSTRUCTION}\n\n"
+    "Do not output reasoning or <thought>/<think> tags. Return JSON only.\n\n"
     "Rules for old_str:\n"
     "- Must be an EXACT substring of the file (including all whitespace and indentation)\n"
     "- Must appear exactly ONCE in the file\n"
     "- Prefer the SHORTEST unique snippet (usually 1 line, sometimes 2)\n"
+    "- Never use identifier-only snippets like variable names; prefer a full line\n"
+    "- If a token appears multiple times, include surrounding syntax so old_str is unique\n"
     "- Do NOT include unrelated surrounding lines\n\n"
     "Rules for new_str:\n"
     "- Complete replacement for old_str\n"

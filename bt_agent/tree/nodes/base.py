@@ -20,9 +20,9 @@ class BaseLLMNode(py_trees.behaviour.Behaviour, ABC):
 
     @staticmethod
     def _extract_thought(raw_text: str) -> tuple[str | None, str]:
-        match = re.search(r"<thought>(.*?)</thought>", raw_text, flags=re.DOTALL | re.IGNORECASE)
+        match = re.search(r"<(?:thought|think)>(.*?)</(?:thought|think)>", raw_text, flags=re.DOTALL | re.IGNORECASE)
         thought = match.group(1).strip() if match else None
-        cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        cleaned = re.sub(r"<(?:thought|think)>.*?</(?:thought|think)>", "", raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
         return thought, cleaned
 
     def _call_llm_json(self, system: str, user: str, retries: int = 2, retry_delay_s: float = 0.2) -> dict:
@@ -55,6 +55,17 @@ class BaseLLMNode(py_trees.behaviour.Behaviour, ABC):
                         return first_obj
                 except json.JSONDecodeError:
                     pass
+                # Recover when model prepends analysis text (e.g. <think>...) before JSON.
+                for opener in ("{", "["):
+                    idx = cleaned.find(opener)
+                    if idx < 0:
+                        continue
+                    try:
+                        first_obj, _ = json.JSONDecoder().raw_decode(cleaned[idx:])
+                        if isinstance(first_obj, dict):
+                            return first_obj
+                    except json.JSONDecodeError:
+                        continue
                 last_error = str(exc)
                 current_user = (
                     f"{user}\n\nYour prior output was invalid JSON: {exc}. "
