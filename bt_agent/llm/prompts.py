@@ -43,7 +43,8 @@ GENERATE_EDIT_USER = (
     "Rules for old_str:\n"
     "- Must be an EXACT substring of the file (including all whitespace and indentation)\n"
     "- Must appear exactly ONCE in the file\n"
-    "- Include enough context lines (3-5) to be unique\n\n"
+    "- Prefer the SHORTEST unique snippet (usually 1 line, sometimes 2)\n"
+    "- Do NOT include unrelated surrounding lines\n\n"
     "Rules for new_str:\n"
     "- Complete replacement for old_str\n"
     "- Preserve surrounding indentation style\n"
@@ -58,7 +59,7 @@ GENERATE_EDIT_RETRY_ADDITION = (
     "Error: {last_error}\n\n"
     "Try again. Common fixes:\n"
     "- Check that old_str exactly matches the file including spaces and newlines\n"
-    "- Make old_str longer to ensure uniqueness\n"
+    "- If old_str was not found, make old_str shorter and more exact\n"
     "- Check indentation carefully (spaces vs tabs)"
 )
 
