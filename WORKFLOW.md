@@ -5,6 +5,29 @@ and iteratively improving the bt-agent using a frontier model as the optimizer.
 
 ---
 
+## Required Preflight
+
+Run these checks before `bench.sh` or `bench-tune.sh`:
+
+```bash
+# 1) LM Studio reachability
+curl -sS http://127.0.0.1:1234/v1/models
+
+# 2) Smoke benchmark
+./scripts/bench.sh --suite suites/phase1.yaml --tag preflight-smoke --runs-per-problem 1
+```
+
+Preflight pass criteria:
+- LM Studio endpoint responds and includes the expected model id (default `qwen/qwen3-14b`).
+- Smoke run completes end-to-end and writes:
+  - per-trial `result.json`
+  - run-level `results.json`
+  - run-level `metrics.json`
+
+If running in a sandboxed agent environment, access to `127.0.0.1:1234` may require escalated permissions.
+
+---
+
 ## Two Loops
 
 There are two distinct working modes:
@@ -52,6 +75,9 @@ directory and can print the run path, formatted log, `problem.yaml`, or `git dif
 This is the main improvement loop. `bench-tune.sh` orchestrates four sub-scripts
 in sequence, iterating until the phase success gate passes or `--max-iterations` is
 reached.
+
+Important: do not tune on partial/aborted runs. If any infra or harness error prevents
+`metrics.json` generation, treat the iteration as invalid and fix infrastructure first.
 
 ```bash
 # Run up to 3 iterations, review Claude's suggestions manually before each re-run
@@ -224,6 +250,10 @@ loop early with "🟢 SUCCESS GATE PASSED" when it passes.
 ## Quick Reference
 
 ```bash
+# Preflight before tuning
+curl -sS http://127.0.0.1:1234/v1/models
+./scripts/bench.sh --suite suites/phase1.yaml --tag preflight-smoke --runs-per-problem 1
+
 # Single problem, interactive
 ./scripts/run-problem.sh
 
@@ -245,3 +275,13 @@ loop early with "🟢 SUCCESS GATE PASSED" when it passes.
 # Check cumulative progress
 cat reports/progress.md
 ```
+
+## Bench-Tune Readiness Checklist
+
+Before running `./scripts/bench-tune.sh ...`:
+
+1. LM Studio is reachable at `http://127.0.0.1:1234/v1/models`.
+2. Expected model id is present (or set `--model` explicitly).
+3. A smoke benchmark completed and produced valid `metrics.json`.
+4. `reports/latest.md` corresponds to a complete run (not an aborted run).
+5. `pytest tests/unit/ -q` passes in the working tree.

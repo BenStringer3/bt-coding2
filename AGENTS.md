@@ -74,6 +74,27 @@ This is the core loop you operate in:
 
 `bench-tune.sh` automates steps 1–6 when called with `--auto-tune`. Steps 2–3 (trajectory inspection) require reading actual log files.
 
+### Benchmark Preflight (Required)
+
+Before any `bench.sh` or `bench-tune.sh` run, perform this preflight:
+
+1. Verify LM Studio is reachable:
+   - `curl -sS http://127.0.0.1:1234/v1/models`
+2. Verify expected model is listed (default: `qwen/qwen3-14b` unless overridden)
+3. Run a smoke benchmark and ensure artifacts are produced:
+   - `./scripts/bench.sh --suite suites/phase1.yaml --tag preflight-smoke --runs-per-problem 1`
+   - Confirm run directory contains `result.json` (per trial), `results.json`, and `metrics.json`
+4. Only start iterative tuning after a complete benchmark run succeeds end-to-end
+
+If running in a sandboxed coding agent, local socket access to `127.0.0.1:1234` may require escalated permissions.
+
+### Triage Rule: Infra vs Agent
+
+Do not tune prompts/nodes from incomplete runs.
+
+- **Infrastructure/harness failures** (connection errors, script runtime errors, missing artifacts) must be fixed first.
+- **Agent behavior failures** (e.g., `old_str_not_found`, `json_parse_error`, `syntax_error`) are valid tuning targets only after infrastructure is stable.
+
 ---
 
 ## Architecture Overview
@@ -219,6 +240,7 @@ If a systematic gap is identified (e.g., model never correctly locates the right
 - **`tests/fixtures/*/problem.yaml`** — problem specifications are fixed
 - **`suites/*.yaml`** — suite definitions and success gates are spec, not config
 - **`scripts/bench.sh`, `bench-analyze.py`, `bench-report.py`** — evaluation infrastructure
+  - Exception: if the benchmark pipeline itself is broken (cannot produce valid `result.json`/`metrics.json`), fix infrastructure correctness first, then resume agent tuning
 - **`tests/unit/`** — unit tests are ground truth for the harness itself; fix failures, don't delete tests
 
 ---
@@ -285,10 +307,14 @@ Model and API base are read from `.env` (copy `.env.example`). Override model pe
 ## Recommended First Steps When Invoked
 
 1. `cat reports/latest.md` — understand current state
-2. Check `success_gate.passed` in `runs/<latest>/metrics.json`
-3. If gate not passed: read `failure_modes` and pick the highest-count failure
-4. Find one or two problematic trajectories in `runs/<latest>/<problem>/trial-1/trajectory.jsonl`
-5. Read the relevant node source (`bt_agent/tree/nodes/`) and prompt (`bt_agent/llm/prompts.py`)
-6. Make a targeted change; explain your reasoning before editing
-7. Run `pytest tests/unit/ -q` to confirm no regressions
-8. Run `./scripts/bench.sh --suite suites/phase1.yaml --tag fix-<description>` to validate
+2. Run preflight:
+   - `curl -sS http://127.0.0.1:1234/v1/models`
+   - confirm expected model id is available
+   - ensure latest benchmark completed and produced `metrics.json`
+3. Check `success_gate.passed` in `runs/<latest>/metrics.json`
+4. If gate not passed: read `failure_modes` and pick the highest-count failure
+5. Find one or two problematic trajectories in `runs/<latest>/<problem>/trial-1/trajectory.jsonl`
+6. Read the relevant node source (`bt_agent/tree/nodes/`) and prompt (`bt_agent/llm/prompts.py`)
+7. Make a targeted change; explain your reasoning before editing
+8. Run `pytest tests/unit/ -q` to confirm no regressions
+9. Run `./scripts/bench.sh --suite suites/phase1.yaml --tag fix-<description>` to validate
