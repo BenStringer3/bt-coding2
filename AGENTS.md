@@ -49,8 +49,8 @@ source .venv/bin/activate
 # View latest report
 cat reports/latest.md
 
-# Run the full iterative tuning loop (you may be invoked this way)
-./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 3 --auto-tune
+# Run one benchmark iteration (repeat in this same TUI session)
+./scripts/bench.sh --suite suites/phase1.yaml --tag iter-1 --runs-per-problem 1
 
 # Run unit tests (after code changes)
 .venv/bin/python -m pytest tests/unit/ -q
@@ -60,7 +60,7 @@ cat reports/latest.md
 
 ## Improvement Workflow
 
-> See **`WORKFLOW.md`** for the full detailed description of both loops (dev loop and bench-tune loop), including a mermaid flowchart of the iteration cycle and the complete artifact layout.
+> See **`WORKFLOW.md`** for the full detailed description of both loops (dev loop and tune loop), including the iteration cycle and artifact layout.
 
 This is the core loop you operate in:
 
@@ -72,11 +72,11 @@ This is the core loop you operate in:
 6. **Rerun** bench: `./scripts/bench.sh --suite suites/phase1.yaml --tag my-fix`
 7. **Check gate**: if `metrics.json → success_gate.passed == true`, phase complete; else loop
 
-`bench-tune.sh` automates steps 1–6 when called with `--auto-tune`. Steps 2–3 (trajectory inspection) require reading actual log files.
+These steps are executed by the same TUI frontier agent session (Codex/Claude) that you started. Do not spawn a second frontier-agent subprocess from scripts.
 
 ### Benchmark Preflight (Required)
 
-Before any `bench.sh` or `bench-tune.sh` run, perform this preflight:
+Before any `bench.sh` run, perform this preflight:
 
 1. Verify LM Studio is reachable:
    - `curl -sS http://127.0.0.1:1234/v1/models`

@@ -1,287 +1,161 @@
 # bt-agent Iterative Improvement Workflow
 
-This document describes the complete workflow for running benchmarks, collecting results,
-and iteratively improving the bt-agent using a frontier model as the optimizer.
+This workflow is designed to run inside a single TUI coding-agent session (Codex or Claude).
+No script under `scripts/` should launch a separate frontier-model subprocess.
+
+---
+
+## Operating Model (Important)
+
+- The TUI agent you started is the optimizer.
+- `bt-agent` (small local model) is the subject under test.
+- `scripts/` tools run benchmarks and reporting only.
+- Tuning edits are done by the same active TUI agent session, not by spawning `claude -p` or any other frontier-agent process.
 
 ---
 
 ## Required Preflight
 
-Run these checks before `bench.sh` or `bench-tune.sh`:
+Run before any benchmark iteration:
 
 ```bash
 # 1) LM Studio reachability
 curl -sS http://127.0.0.1:1234/v1/models
 
-# 2) Smoke benchmark
+# 2) Smoke benchmark and artifact check
 ./scripts/bench.sh --suite suites/phase1.yaml --tag preflight-smoke --runs-per-problem 1
 ```
 
 Preflight pass criteria:
-- LM Studio endpoint responds and includes the expected model id (default `qwen/qwen3-14b`).
-- Smoke run completes end-to-end and writes:
+- LM Studio responds and includes expected model id (default `qwen/qwen3-14b`, unless overridden).
+- Smoke benchmark completes and produces:
   - per-trial `result.json`
   - run-level `results.json`
   - run-level `metrics.json`
 
-If running in a sandboxed agent environment, access to `127.0.0.1:1234` may require escalated permissions.
+If running in a sandboxed environment, socket access to `127.0.0.1:1234` may require escalation.
 
 ---
 
 ## Two Loops
 
-There are two distinct working modes:
-
-| Mode | When to use | Scripts |
-|------|-------------|---------|
-| **Dev loop** | Debug a single problem interactively | `run-problem.sh` → `collect-logs.sh` |
-| **Bench-tune loop** | Systematically improve the agent across a full phase | `bench-tune.sh` (orchestrates all other scripts) |
+| Mode | When to use | Driver |
+|------|-------------|--------|
+| **Dev loop** | Debug one fixture in depth | `run-problem.sh` + `collect-logs.sh` |
+| **Tune loop** | Improve phase success rate iteratively | Active TUI agent + `bench.sh` |
 
 ---
 
-## Dev Loop — Interactive Debugging
-
-Use this when you want to run a single fixture and inspect the trajectory in detail.
+## Dev Loop — Single Problem Debug
 
 ```bash
-# Pick a problem with fzf, run bt-agent, save formatted logs
 ./scripts/run-problem.sh
-
-# (Optional) Re-format logs from a previous run
-./scripts/collect-logs.sh --run-dir runs/<problem>-<timestamp>/
+./scripts/collect-logs.sh --run-dir runs/<problem-run>/
 ```
 
-### Scripts in the dev loop
-
-**`run-problem.sh`**
-Presents an fzf menu of all `tests/fixtures/*/problem.yaml` files.
-After selection, initialises a fresh git repo in `runs/<slug>-<ts>/`, copies the
-fixture source files, runs `bt-agent`, then calls `collect-logs.sh` automatically.
-
-**`collect-logs.sh`**
-Reads `trajectory.jsonl` from the most recent (or specified) run directory and
-renders each node tick as a human-readable line. Optionally interleaves LM Studio
-server logs (request/response timing, token counts). Saves output to
-`runs/<id>/formatted-log.txt` when `--run-dir` is given.
-
-**`run-info.sh`**
-Internal helper (used by the `/run-report` skill). Finds the most recent run
-directory and can print the run path, formatted log, `problem.yaml`, or `git diff`.
+Use this to inspect node-level behavior and validate a hypothesis quickly.
 
 ---
 
-## Bench-Tune Loop — Iterative Phase Improvement
+## Tune Loop — TUI-Agent Driven Iteration
 
-This is the main improvement loop. `bench-tune.sh` orchestrates four sub-scripts
-in sequence, iterating until the phase success gate passes or `--max-iterations` is
-reached.
+Use this loop directly in your Codex/Claude chat session.
 
-Important: do not tune on partial/aborted runs. If any infra or harness error prevents
-`metrics.json` generation, treat the iteration as invalid and fix infrastructure first.
+1. Run benchmark:
+   - `./scripts/bench.sh --suite suites/phase1.yaml --tag iter-<label> --runs-per-problem 1`
+2. Read report:
+   - `cat reports/latest.md`
+3. Check gate:
+   - inspect `runs/<latest-run>/metrics.json` → `success_gate.passed`
+4. If gate failed, inspect failures:
+   - highest-count entry in `failure_modes`
+   - one or two trajectories at `runs/<latest>/<problem>/trial-1/trajectory.jsonl`
+5. Edit agent implementation (`bt_agent/tree/nodes/`, builders, prompts, config).
+6. Validate harness integrity:
+   - `.venv/bin/python -m pytest tests/unit/ -q`
+7. Re-run benchmark and repeat until gate passes.
 
-```bash
-# Run up to 3 iterations, review Claude's suggestions manually before each re-run
-./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 3
+### Auto-Tune Semantics (TUI Session)
 
-# Fully autonomous: Claude reads results and applies code changes without prompting
-./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 5 --auto-tune
-```
+`auto-tune` means the active TUI agent applies edits directly in this same session after reading benchmark artifacts.
+It does **not** mean launching a new external frontier-agent subprocess.
 
-### Iteration diagram
+---
+
+## Iteration Diagram
 
 ```mermaid
 flowchart TD
-    START([Start bench-tune.sh]) --> ITER
-
-    subgraph ITER["Iteration N"]
-        direction TB
-        B["① bench.sh\nRun bt-agent on every\nproblem × trial in the suite"]
-        A["② bench-analyze.py\nParse trajectory.jsonl files\n→ metrics.json"]
-        R["③ bench-report.py\nGenerate Markdown report\n→ reports/latest.md\n→ reports/progress.md"]
-        C["④ claude -p\nFrontier model reads report\n+ bt-agent source code\nDiagnoses failures,\nproposes improvements"]
-        B --> A --> R --> GATE
-
-        GATE{Phase gate\npassed?}
-        GATE -- Yes --> WIN
-
-        GATE -- No, and\nmore iterations left --> C
-
-        C --> APPLY
-
-        APPLY{--auto-tune?}
-        APPLY -- Yes --> EDIT["Claude applies edits\ndirectly to codebase\n(leaf nodes, prompts,\ntree structure, config)"]
-        APPLY -- No --> HUMAN["Suggestions printed\nto stdout + tune log\nHuman reviews & applies\nPress Enter to continue"]
-
-        EDIT --> NEXTITER
-        HUMAN --> NEXTITER
-    end
-
-    NEXTITER([Next iteration]) --> ITER
-    WIN([Gate passed ✅\nAdvance to next phase])
-
-    GATE -- No, max\niterations reached --> FAIL([Max iterations 🔴\nInspect reports/progress.md])
+    START([Start in TUI agent session]) --> B
+    B["① bench.sh\nRun suite over all problems"] --> R
+    R["② Read latest report\nreports/latest.md + metrics.json"] --> G
+    G{Gate passed?}
+    G -- Yes --> WIN([Done: advance phase])
+    G -- No --> T
+    T["③ TUI agent diagnoses failures\nvia trajectory.jsonl + failure_modes"] --> E
+    E["④ TUI agent edits bt_agent code\n(nodes/prompts/tree/config)"] --> U
+    U["⑤ Run unit tests\npytest tests/unit/ -q"] --> B
 ```
 
-### Scripts in the bench-tune loop
-
-**`bench-tune.sh`** — *Orchestrator*
-Drives the full iteration loop. Accepts `--suite`, `--max-iterations`, `--auto-tune`,
-`--model` (for bt-agent), `--runs-per-problem`, and `--dry-run`. Writes a
-timestamped tune log to `reports/tune-<tag>-<ts>.log`.
-
 ---
 
-**`bench.sh`** — *Step 1: Batch runner*
-Reads the suite YAML (`suites/phase<N>.yaml`), iterates over every `problem × tree × trial`,
-and for each trial:
-- Copies fixture source files to a fresh `runs/<run-id>/<problem>/trial-N/` directory
-- Initialises a git repo and commits the initial state
-- Runs `bt-agent <tree> --task ... --repo ... --output trajectory.jsonl`
-- Captures `diff.patch` (the changes bt-agent made) and writes `result.json`
+## Script Responsibilities
 
-At the end, writes `manifest.json` and `results.json` to the run directory, then
-automatically calls `bench-analyze.py` and `bench-report.py`.
+- `scripts/bench.sh`: batch run fixtures, create run artifacts, invoke analysis/report generation.
+- `scripts/bench-analyze.py`: compute metrics, gate status, failure-mode counts.
+- `scripts/bench-report.py`: generate Markdown summary and update `reports/latest.md`.
+- `scripts/run-problem.sh`: run one fixture interactively.
+- `scripts/collect-logs.sh`: produce readable trajectory logs.
 
----
-
-**`bench-analyze.py`** — *Step 2: Metrics extraction*
-Parses every `trajectory.jsonl` in the run directory. Extracts:
-- Success/failure and commit status
-- LLM call count, total tokens, prompt vs completion split
-- Retry count (how many times `GenerateEdit` ran per problem)
-- Failure mode classification (`old_str_not_found`, `syntax_error`, `json_parse_error`, …)
-- Per-phase token spend (gather / plan / edit / validate / commit buckets)
-
-Writes `runs/<id>/metrics.json`. Checks the suite's `success_gate` thresholds and
-records `passed: true/false`. Generates rule-based `recommendations` from failure patterns.
-
----
-
-**`bench-report.py`** — *Step 3: Report generation*
-Reads `metrics.json` and `manifest.json`. Generates a Markdown report with:
-- Overall pass rate, avg retries, avg tokens, avg wall time
-- Phase gate status vs thresholds
-- Per-problem pass/fail table
-- Failure mode breakdown
-- Rule-based recommendations
-- Optional delta comparison to a previous run
-
-Writes to `reports/<ts>-<tag>-summary.md`, symlinks to `reports/latest.md`, and
-appends a one-line progress row to `reports/progress.md`.
-
----
-
-**`claude -p`** — *Step 4: Frontier-model optimizer*
-The `claude` CLI (Claude Code) is invoked — **not bt-agent**. This is a deliberate
-separation: the small local model (bt-agent's subject under test) cannot reliably
-diagnose its own failures or propose architectural solutions. Claude reads
-`reports/latest.md` plus the bt-agent source tree and can suggest or apply changes to:
-
-| Target | Examples |
-|--------|---------|
-| `bt_agent/tree/nodes/` | Fix leaf node logic, add retry handling, sharpen error extraction |
-| `bt_agent/tree/builder.py` | Add or reorder tree nodes, change Sequence/Selector structure |
-| `bt_agent/llm/prompts.py` | Clarify output format, add examples, tighten JSON schema |
-| `config/default.yaml` | Adjust temperature, `max_edit_attempts`, context window size |
-
-Without `--auto-tune`: runs with `Read,Glob,Grep` only → prints diagnosis to stdout.
-With `--auto-tune`: runs with `Read,Glob,Grep,Edit,Write` and `bypassPermissions` →
-applies changes directly to the codebase.
+No script is responsible for launching a frontier optimizer process.
 
 ---
 
 ## Artifact Layout
 
-```
+```text
 runs/
-  <ts>-<tag>/                    ← one directory per bench.sh invocation
-    manifest.json                ← suite, model, config snapshot
-    results.json                 ← aggregated pass/fail per trial
-    metrics.json                 ← tokens, retries, failure modes, gate result
+  <ts>-<tag>/
+    manifest.json
+    results.json
+    metrics.json
     <problem-id>/
       trial-1/
-        <source files>           ← copied from fixture
-        trajectory.jsonl         ← full node-by-node trace
-        agent.log                ← bt-agent stdout
-        diff.patch               ← git diff from initial state
-        result.json              ← {success, exit_code, wall_time_s, committed, …}
-        formatted-log.txt        ← human-readable trajectory (if collect-logs ran)
+        trajectory.jsonl
+        agent.log
+        diff.patch
+        result.json
 
 reports/
-  <ts>-<tag>-summary.md         ← per-run Markdown report
-  latest.md                     ← always points to the most recent report
-  progress.md                   ← one-line-per-run cumulative table
-  tune-<tag>-<ts>.log           ← full bench-tune.sh output log
-
-tests/fixtures/
-  <fixture-name>/
-    buggy.py                    ← source file with the bug
-    problem.yaml                ← task description + compatible_trees
-    test_solution.py            ← pytest oracle (defines "correct")
-
-suites/
-  phase1.yaml                   ← problem list + success_gate for Phase 1
-  phase2.yaml
-  phase3.yaml
-  all.yaml                      ← every problem, for regression runs
+  <ts>-<tag>-summary.md
+  latest.md
+  progress.md
 ```
 
 ---
 
-## Phase Gating
+## Triage Rule: Infra vs Agent
 
-Each suite YAML specifies a `success_gate`. The loop advances to the next phase only
-when all gate criteria pass. This prevents investing effort in harder problems while
-a simpler capability tier is still broken.
+Do not tune prompts/nodes from incomplete runs.
 
-```yaml
-# Example: suites/phase1.yaml
-success_gate:
-  min_success_rate: 0.90
-  max_avg_retries: 2
-  max_avg_llm_calls: 4
-```
-
-`bench-analyze.py` evaluates the gate after every run. `bench-tune.sh` exits the
-loop early with "🟢 SUCCESS GATE PASSED" when it passes.
+- Infrastructure failures first (connection errors, missing artifacts, script/runtime errors).
+- Agent behavior tuning second (`old_str_not_found`, `json_parse_error`, `syntax_error`, etc.).
 
 ---
 
 ## Quick Reference
 
 ```bash
-# Preflight before tuning
+# Preflight
 curl -sS http://127.0.0.1:1234/v1/models
 ./scripts/bench.sh --suite suites/phase1.yaml --tag preflight-smoke --runs-per-problem 1
 
-# Single problem, interactive
-./scripts/run-problem.sh
-
-# Full phase benchmark (one-shot, no tuning)
+# Baseline run
 ./scripts/bench.sh --suite suites/phase1.yaml --tag p1-baseline
 
-# View formatted logs for the most recent run
-./scripts/collect-logs.sh
+# Inspect latest report
+cat reports/latest.md
 
-# Iterative tuning — manual review between iterations
-./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 3
-
-# Iterative tuning — fully autonomous (Claude applies changes)
-./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 5 --auto-tune
-
-# Regression check across all phases
-./scripts/bench.sh --suite suites/all.yaml --tag regression
-
-# Check cumulative progress
-cat reports/progress.md
+# Unit tests after edits
+.venv/bin/python -m pytest tests/unit/ -q
 ```
-
-## Bench-Tune Readiness Checklist
-
-Before running `./scripts/bench-tune.sh ...`:
-
-1. LM Studio is reachable at `http://127.0.0.1:1234/v1/models`.
-2. Expected model id is present (or set `--model` explicitly).
-3. A smoke benchmark completed and produced valid `metrics.json`.
-4. `reports/latest.md` corresponds to a complete run (not an aborted run).
-5. `pytest tests/unit/ -q` passes in the working tree.

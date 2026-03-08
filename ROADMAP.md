@@ -197,11 +197,8 @@ scripts/
   bench.sh            # Run a suite → runs/<id>/{manifest,results}.json
   bench-analyze.py    # Parse trajectories → runs/<id>/metrics.json
   bench-report.py     # Generate Markdown → reports/<ts>-summary.md
-  bench-tune.sh       # Iterative loop: bench → analyze → report → claude → rerun
-                      #   Step 4 uses the `claude` CLI (frontier model) to diagnose
-                      #   failures and propose/apply improvements to the bt-agent
-                      #   codebase (leaf nodes, tree structure, prompts, config).
-                      #   bt-agent is the subject under test — NOT the optimizer.
+  # Iterative tuning is driven by the active TUI frontier agent session
+  # (Codex/Claude): bench → analyze/report → inspect trajectories → edit bt-agent → rerun
   run-problem.sh      # Interactive single-problem runner (unchanged)
   collect-logs.sh     # Human-readable log formatter (unchanged)
 ```
@@ -215,11 +212,9 @@ scripts/
 # 2. View the auto-generated report
 cat reports/latest.md
 
-# 3. Run the iterative tuning loop (up to 3 iterations)
-#    Each iteration: bench → analyze → report → claude analyzes → (apply) → rerun
-#    Use --auto-tune to let claude apply changes autonomously (no human confirmation)
-./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 3
-./scripts/bench-tune.sh --suite suites/phase1.yaml --max-iterations 3 --auto-tune
+# 3. Run iterative tuning in your active TUI agent session
+#    Each iteration: bench → analyze/report → inspect trajectories → edit bt-agent → rerun
+./scripts/bench.sh --suite suites/phase1.yaml --tag p1-iter1 --runs-per-problem 1
 
 # 4. Check cumulative progress
 cat reports/progress.md
@@ -295,7 +290,7 @@ reports/
 | `scripts/bench.sh` | ✅ Complete |
 | `scripts/bench-analyze.py` | ✅ Complete |
 | `scripts/bench-report.py` | ✅ Complete |
-| `scripts/bench-tune.sh` | ✅ Complete |
+| TUI-agent-driven iterative tuning workflow | ✅ Complete |
 | Phase 4 fixtures | 🔲 Planned (after Phase 3 gate) |
 | Phase 5 fixtures | 🔲 Planned (after Phase 4 gate) |
 | Additional P3 fixtures (C–G) | 🔲 Planned (after Phase 2 gate) |

@@ -346,7 +346,7 @@ regression to a specific cause. If the pass rate improves after two changes,
 you don't know which one helped (or whether they interfered). If it regresses,
 you don't know which change caused it.
 
-Make one targeted change per iteration. Use the bench-tune loop's iteration
+Make one targeted change per iteration. Use the iterative tuning loop's
 structure for this: each iteration is one hypothesis test.
 
 ---
@@ -369,7 +369,7 @@ strictly better than a structural fix that solves the same problem.
 
 ### 21. Prefer Changes with Broad Mechanistic Justification
 
-The bench-tune loop is an optimizer against a fixed benchmark. Goodhart's Law
+The iterative tuning loop is an optimizer against a fixed benchmark. Goodhart's Law
 applies: a change that boosts the metric by teaching the model to handle one
 fixture's idiosyncrasies may harm generalization.
 
